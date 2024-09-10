@@ -15,7 +15,7 @@ namespace GNW2.GameManager
 
         [SerializeField] private NetworkPrefabRef _playerPrefab;
         private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
-        
+        private bool _isMouseButton0Pressed;
         #region NetworkRunner Callbacks
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 
@@ -61,7 +61,7 @@ namespace GNW2.GameManager
             {
                 data.Direction += Vector3.right;
             }
-
+            data.buttons.Set(NetworkInputData.MOUSEBUTTON0,_isMouseButton0Pressed);
             input.Set(data);
 
         }
@@ -93,6 +93,11 @@ namespace GNW2.GameManager
 
         public void OnSceneLoadStart(NetworkRunner runner){ }
         #endregion
+
+        private void Update()
+        {
+            _isMouseButton0Pressed = UnityEngine.Input.GetMouseButton(0);
+        }
 
         async void StartGame(GameMode mode)
         {
