@@ -4,12 +4,13 @@ using System.Collections.Generic;
 using Fusion;
 using GNW2.Input;
 using GNW2.Projectile;
+using GNW2.UI;
 using Unity.VisualScripting;
 using UnityEngine;
 
 namespace GNW2.Player
 {
-    public class Player : NetworkBehaviour
+    public class Player : NetworkBehaviour, ICombat
     {
         [SerializeField] private float speed = 5f;
         [SerializeField] private BulletProjectile bulletPrefab;
@@ -17,17 +18,18 @@ namespace GNW2.Player
         [Networked] private TickTimer fireDelayTimer { get; set; }
         private Vector3 _bulletSpawnLocation = Vector3.forward * 2;
         private NetworkCharacterController _cc;
-        private float? speeeeed = null;
+        private ChatUI _chatUI;
+        
         private event Action OnButtonPressed;
+        public event Action<int> OnTakeDamage;
         private void Awake()
         {
-            OnButtonPressed?.Invoke();
-            speeeeed ??= 2f;
-            if (!speeeeed.HasValue)
-            {
-                speeeeed = 2f;
-            }
             _cc = GetComponent<NetworkCharacterController>();
+            _chatUI = FindObjectOfType<ChatUI>();
+            if (_chatUI != null)
+            {
+                _chatUI.OnMesageSent += RPC_SendMessage;
+            }
         }
 
         public override void FixedUpdateNetwork()
@@ -59,7 +61,17 @@ namespace GNW2.Player
         {
             bullet.GetComponent<BulletProjectile>()?.Init();
         }
+
+
+        public void TakeDamage(int Damage)
+        {
+            OnTakeDamage?.Invoke(Damage);
+        }
         
-        
+        [Rpc(RpcSources.StateAuthority, RpcTargets.Proxies)]
+        private void RPC_SendMessage(string message)
+        {
+            Debug.Log(message);
+        }
     }
 }
