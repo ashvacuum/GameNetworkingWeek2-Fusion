@@ -5,7 +5,9 @@ using UnityEngine;
 using Fusion;
 using Fusion.Sockets;
 using GNW2.Input;
+using TMPro;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace GNW2.GameManager
 {
@@ -15,7 +17,9 @@ namespace GNW2.GameManager
 
         [SerializeField] private NetworkPrefabRef _playerPrefab;
         private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
-        
+        private bool _isMouseButton0Pressed;
+        [SerializeField] private Button _button;
+        [SerializeField] private TMP_InputField _input;
         #region NetworkRunner Callbacks
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 
@@ -61,7 +65,7 @@ namespace GNW2.GameManager
             {
                 data.Direction += Vector3.right;
             }
-
+            data.buttons.Set(NetworkInputData.MOUSEBUTTON0,_isMouseButton0Pressed);
             input.Set(data);
 
         }
@@ -94,6 +98,20 @@ namespace GNW2.GameManager
         public void OnSceneLoadStart(NetworkRunner runner){ }
         #endregion
 
+        private void Awake()
+        {
+            _button.onClick.AddListener(() =>
+            {
+                StartGame(GameMode.AutoHostOrClient);
+                _button.transform.parent.gameObject.SetActive(false);
+            });
+        }
+
+        private void Update()
+        {
+            _isMouseButton0Pressed = UnityEngine.Input.GetMouseButton(0);
+        }
+
         async void StartGame(GameMode mode)
         {
             // lets fusion know that we will be sending input
@@ -120,7 +138,7 @@ namespace GNW2.GameManager
         }
 
         private void OnGUI()
-        {
+        {/*
             if (_runner == null)
             {
                 if (GUI.Button(new Rect(0, 0, 200, 40), "Host"))
@@ -131,7 +149,7 @@ namespace GNW2.GameManager
                 {
                     StartGame(GameMode.Client);
                 }
-            }
+            }*/
         }
     }
 }
