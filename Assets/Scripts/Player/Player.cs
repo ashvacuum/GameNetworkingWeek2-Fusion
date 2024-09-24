@@ -54,6 +54,11 @@ namespace GNW2.Player
             data.Direction.Normalize();
             _cc.Move(speed *data.Direction * Runner.DeltaTime);
             
+            if (data.buttons.IsSet(NetworkInputData.JUMPBUTTON) && _cc.Grounded)
+            {
+                _cc.Jump();
+            }
+            
             if (!HasStateAuthority || !fireDelayTimer.ExpiredOrNotRunning(Runner)) return;
             
             if (data.Direction.sqrMagnitude > 0)
@@ -69,10 +74,7 @@ namespace GNW2.Player
                     (runner, bullet) => { bullet.GetComponent<BulletProjectile>()?.Init(); });
             }
 
-            if (data.buttons.IsSet(NetworkInputData.JUMPBUTTON) && _cc.Grounded)
-            {
-                _cc.Jump();
-            }
+            
         }
 
         private void OnBulletSpawned(NetworkRunner runner, NetworkObject bullet)
