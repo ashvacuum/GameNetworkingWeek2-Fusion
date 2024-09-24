@@ -36,6 +36,11 @@ namespace GNW2.GameManager
                 
             }
         }
+    [Rpc (RpcSources.StateAuthority, RpcTargets.Proxies)]
+        void RpcSourcesAll()
+        {
+            
+        }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {

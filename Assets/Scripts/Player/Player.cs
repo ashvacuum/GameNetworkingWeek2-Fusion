@@ -117,7 +117,7 @@ namespace GNW2.Player
             OnTakeDamage?.Invoke(Damage);
         }
         
-        [Rpc(RpcSources.StateAuthority, RpcTargets.Proxies)]
+        [Rpc(RpcSources.All, RpcTargets.All, InvokeLocal = false)]
         private void RPC_SendMessage(string message)
         {
             Debug.Log(message);
