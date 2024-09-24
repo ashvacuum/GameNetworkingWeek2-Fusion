@@ -29,7 +29,7 @@ namespace GNW2.GameManager
         {
             if (runner.IsServer)
             {
-                Vector3 customLocation = new Vector3(1 * runner.SessionInfo.PlayerCount, 0, 0);
+                Vector3 customLocation = new Vector3(1 * runner.SessionInfo.PlayerCount, 5, 0);
                 NetworkObject playerNetworkObject = runner.Spawn(_playerPrefab, customLocation, Quaternion.identity);
                 playerNetworkObject.AssignInputAuthority(player);
                 _spawnedPlayers.Add(player, playerNetworkObject);
@@ -66,6 +66,7 @@ namespace GNW2.GameManager
                 data.Direction += Vector3.right;
             }
             data.buttons.Set(NetworkInputData.MOUSEBUTTON0,_isMouseButton0Pressed);
+            data.buttons.Set(NetworkInputData.ISJUMP, UnityEngine.Input.GetKey(KeyCode.Space));
             input.Set(data);
 
         }
