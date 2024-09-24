@@ -18,6 +18,7 @@ namespace GNW2.GameManager
         [SerializeField] private NetworkPrefabRef _playerPrefab;
         private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
         private bool _isMouseButton0Pressed;
+        private bool _wasJumpButtonPressed;
         [SerializeField] private Button _button;
         [SerializeField] private TMP_InputField _input;
         #region NetworkRunner Callbacks
@@ -65,7 +66,11 @@ namespace GNW2.GameManager
             {
                 data.Direction += Vector3.right;
             }
-            data.buttons.Set(NetworkInputData.MOUSEBUTTON0,_isMouseButton0Pressed);
+            if(_isMouseButton0Pressed)
+                data.buttons.Set(NetworkInputData.MOUSEBUTTON0,true);
+            if(_wasJumpButtonPressed)
+                data.buttons.Set(NetworkInputData.JUMPBUTTON,true);
+            
             input.Set(data);
 
         }
@@ -83,8 +88,8 @@ namespace GNW2.GameManager
 
         public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message){ }
 
-        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList){ }
-
+        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+        
         public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data){ }
 
         public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken){ }
@@ -105,18 +110,26 @@ namespace GNW2.GameManager
                 StartGame(GameMode.AutoHostOrClient);
                 _button.transform.parent.gameObject.SetActive(false);
             });
+            
+        }
+
+        private void Start()
+        {
+            _runner = this.gameObject.AddComponent<NetworkRunner>();
+            _runner.ProvideInput = true; 
         }
 
         private void Update()
         {
             _isMouseButton0Pressed = UnityEngine.Input.GetMouseButton(0);
+            _wasJumpButtonPressed = UnityEngine.Input.GetKey(KeyCode.Space);
         }
+
 
         async void StartGame(GameMode mode)
         {
             // lets fusion know that we will be sending input
-            _runner = this.gameObject.AddComponent<NetworkRunner>();
-            _runner.ProvideInput = true; 
+            
 
             //create the scene info to send to fusion
             var scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex);

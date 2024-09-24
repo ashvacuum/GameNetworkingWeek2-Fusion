@@ -21,13 +21,13 @@ namespace GNW2.Player
 
         public override void FixedUpdateNetwork()
         {
-            Debug.Log($"Player: {Runner.LocalPlayer.PlayerId} Health: {_currentHealth}");
+            //Debug.Log($"Player: {Runner.LocalPlayer.PlayerId} Health: {_currentHealth}");
         }
 
         private void TakeHealthDamage(int damage)
         {
             _currentHealth -= damage;
-            Debug.Log($"Current Health: {_currentHealth}");
+           // Debug.Log($"Current Health: {_currentHealth}");
             RPC_SpawnHitFx(transform.position);
         }
         

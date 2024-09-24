@@ -17,9 +17,15 @@ namespace GNW2.Player
         [SerializeField] private float fireRate = 0.1f;
         [Networked] private TickTimer fireDelayTimer { get; set; }
         private Vector3 _bulletSpawnLocation = Vector3.forward * 2;
+        private Vector3 _lastKnownInput = Vector3.zero;
         private NetworkCharacterController _cc;
         private ChatUI _chatUI;
-        
+
+        [SerializeField]private Animator _playerAnimator;
+        private static readonly int IsMoving = Animator.StringToHash("IsMoving");
+        private static readonly int Jump = Animator.StringToHash("Jump");
+        private static readonly int IsInAir = Animator.StringToHash("IsInAir");
+
         private event Action OnButtonPressed;
         public event Action<int> OnTakeDamage;
         private void Awake()
@@ -32,29 +38,43 @@ namespace GNW2.Player
             }
         }
 
+        private void Update()
+        {
+            if (_playerAnimator)
+            {
+                _playerAnimator.SetBool(IsMoving, _cc.Velocity.magnitude > 0);
+                _playerAnimator.SetBool(IsInAir, !_cc.Grounded);
+            }
+        }
+
         public override void FixedUpdateNetwork()
         {
             if (!GetInput(out NetworkInputData data)) return;
             
             data.Direction.Normalize();
             _cc.Move(speed *data.Direction * Runner.DeltaTime);
-
+            
+            if (data.buttons.IsSet(NetworkInputData.JUMPBUTTON) && _cc.Grounded)
+            {
+                _cc.Jump();
+            }
+            
             if (!HasStateAuthority || !fireDelayTimer.ExpiredOrNotRunning(Runner)) return;
             
             if (data.Direction.sqrMagnitude > 0)
             {
-                _bulletSpawnLocation = data.Direction * 2f;
+                _bulletSpawnLocation = transform.forward * 2f;
             }
 
-            if (!data.buttons.IsSet(NetworkInputData.MOUSEBUTTON0)) return;
-                
-            fireDelayTimer = TickTimer.CreateFromSeconds(Runner, fireRate);
-            Runner.Spawn(bulletPrefab, transform.position + _bulletSpawnLocation,
-                Quaternion.LookRotation(_bulletSpawnLocation), Object.InputAuthority,
-                (runner, bullet) =>
-                {
-                    bullet.GetComponent<BulletProjectile>()?.Init();
-                });
+            if (data.buttons.IsSet(NetworkInputData.MOUSEBUTTON0))
+            {
+                fireDelayTimer = TickTimer.CreateFromSeconds(Runner, fireRate);
+                Runner.Spawn(bulletPrefab, transform.position + _bulletSpawnLocation,
+                    Quaternion.LookRotation(_bulletSpawnLocation), Object.InputAuthority,
+                    (runner, bullet) => { bullet.GetComponent<BulletProjectile>()?.Init(); });
+            }
+
+            
         }
 
         private void OnBulletSpawned(NetworkRunner runner, NetworkObject bullet)
