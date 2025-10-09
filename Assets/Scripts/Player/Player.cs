@@ -16,20 +16,25 @@ namespace GNW2.Player
         [SerializeField] private BulletProjectile bulletPrefab;
         [SerializeField] private float fireRate = 0.1f;
         [Networked] private TickTimer fireDelayTimer { get; set; }
+
+        [Networked] private float currentHealth { get; set; } = 100;
         private Vector3 _bulletSpawnLocation = Vector3.forward * 2;
         private NetworkCharacterController _cc;
         private ChatUI _chatUI;
         
         private event Action OnButtonPressed;
         public event Action<int> OnTakeDamage;
-        private void Awake()
+        public override void Spawned()
         {
             _cc = GetComponent<NetworkCharacterController>();
-            _chatUI = FindObjectOfType<ChatUI>();
+            _chatUI = FindAnyObjectByType<ChatUI>();
             if (_chatUI != null)
             {
                 _chatUI.OnMesageSent += RPC_SendMessage;
             }
+
+            if (Object.HasStateAuthority)
+                currentHealth = 100;
         }
 
         public override void FixedUpdateNetwork()
@@ -67,11 +72,22 @@ namespace GNW2.Player
         {
             OnTakeDamage?.Invoke(Damage);
         }
-        
-        [Rpc(RpcSources.StateAuthority, RpcTargets.Proxies)]
+
+        [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
         private void RPC_SendMessage(string message)
         {
             Debug.Log(message);
+            RPC_SendLongerMessage(message);
+        }
+
+        private void RPC_SendLongerMessage(NetworkString<_512> message)
+        {
+            
+        }
+        
+        [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
+        private void RPC_ResetHealth(int health, int prevhealth, NetworkBool value)
+        {
         }
     }
 }

@@ -13,13 +13,38 @@ namespace GNW2.GameManager
 {
     public class GameManager : MonoBehaviour, INetworkRunnerCallbacks
     {
+
+        public static GameManager Instance;
         private NetworkRunner _runner;
+
+        [SerializeField] private GameMode _currentGameMode;
 
         [SerializeField] private NetworkPrefabRef _playerPrefab;
         private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
         private bool _isMouseButton0Pressed;
         [SerializeField] private Button _button;
         [SerializeField] private TMP_InputField _input;
+
+        public Dictionary<PlayerRef, NetworkObject> activePlayers => _spawnedPlayers;
+
+        private void Awake()
+        {
+            if (Instance == null)
+            {
+                Instance = this;
+            }
+            else
+            {
+                Destroy(this);
+            }
+            
+
+            _button.onClick.AddListener(() =>
+            {
+                StartGame(_currentGameMode);
+                _button.transform.parent.gameObject.SetActive(false);
+            });
+        }
         #region NetworkRunner Callbacks
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 
@@ -98,14 +123,6 @@ namespace GNW2.GameManager
         public void OnSceneLoadStart(NetworkRunner runner){ }
         #endregion
 
-        private void Awake()
-        {
-            _button.onClick.AddListener(() =>
-            {
-                StartGame(GameMode.AutoHostOrClient);
-                _button.transform.parent.gameObject.SetActive(false);
-            });
-        }
 
         private void Update()
         {
@@ -127,12 +144,13 @@ namespace GNW2.GameManager
             }
 
             await _runner.StartGame(new StartGameArgs()
-                {
-                    GameMode = mode,
-                    SessionName = "TestRoom",
-                    Scene = scene,
-                    SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
-                }
+            {
+                GameMode = mode,
+                SessionName = "TestRoom",
+                Scene = scene,
+                PlayerCount = 6,
+                SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
+            }
             );
 
         }
