@@ -70,7 +70,8 @@ namespace GNW2.Player
 
         public void TakeDamage(int Damage)
         {
-            OnTakeDamage?.Invoke(Damage);
+            if (Object.HasStateAuthority)
+                currentHealth = Mathf.Max(0, currentHealth - Damage);
         }
 
         [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
