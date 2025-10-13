@@ -83,16 +83,6 @@ public class GameHandler : NetworkBehaviour
         });
     }
 
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_ShowResults([RpcTarget] PlayerRef player, NetworkBool isWin, NetworkBool isDraw)
-    {
-        EventBus.Publish(new ShowResultUIEvent
-        {
-            TargetPlayer = player,
-            IsWin = isWin,
-            IsDraw = isDraw
-        });
-    }
 
     /// <summary>
     /// Public method for UI to call when player makes a selection
@@ -115,25 +105,24 @@ public class GameHandler : NetworkBehaviour
 
         if (p1result.PlayerSelection == p2result.PlayerSelection)
         {
-            // Draw - show as draw to both players
-            RPC_ShowResults(p1result.player, false, true);
-            RPC_ShowResults(p2result.player, false, true);
+            // Draw - show draw UI to all players
+            _stateMachine.RPC_ShowDrawUI();
             RPC_BroadcastRoundEnded(PlayerRef.None, true);
         }
         else if ((p1result.PlayerSelection == 0 && p2result.PlayerSelection == 2) ||  // Rock beats Scissors
                  (p1result.PlayerSelection == 1 && p2result.PlayerSelection == 0) ||  // Paper beats Rock
                  (p1result.PlayerSelection == 2 && p2result.PlayerSelection == 1))    // Scissors beats Paper
         {
-            // Player 1 wins
-            RPC_ShowResults(p1result.player, true, false);
-            RPC_ShowResults(p2result.player, false, false);
+            // Player 1 wins - show win to p1, lose to p2
+            _stateMachine.RPC_ShowWinUI(p1result.player);
+            _stateMachine.RPC_ShowLoseUI(p2result.player);
             RPC_BroadcastRoundEnded(p1result.player, false);
         }
         else
         {
-            // Player 2 wins
-            RPC_ShowResults(p1result.player, false, false);
-            RPC_ShowResults(p2result.player, true, false);
+            // Player 2 wins - show lose to p1, win to p2
+            _stateMachine.RPC_ShowLoseUI(p1result.player);
+            _stateMachine.RPC_ShowWinUI(p2result.player);
             RPC_BroadcastRoundEnded(p2result.player, false);
         }
 

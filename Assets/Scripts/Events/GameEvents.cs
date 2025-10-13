@@ -50,6 +50,7 @@ namespace GNW2.Events
 
     public struct ShowSelectionUIEvent : IGameEvent
     {
+        public PlayerRef TargetPlayer;
     }
 
     public struct HideSelectionUIEvent : IGameEvent

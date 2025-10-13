@@ -105,15 +105,21 @@ namespace GNW2.UI
 
         /// <summary>
         /// Shows the rock-paper-scissors selection UI when a round starts
+        /// Only shows UI for the local player
         /// </summary>
         private void OnShowSelectionUI(ShowSelectionUIEvent evt)
         {
             if (!isConnectedToNetwork) return;
 
+            // Only show UI if this is for the local player
+            var runner = NetworkRunner.GetRunnerForGameObject(gameObject);
+            if (runner == null || evt.TargetPlayer != runner.LocalPlayer)
+                return;
+
             if (selectionUI != null)
             {
                 selectionUI.SetActive(true);
-                Debug.Log("[UI] Showing selection UI");
+                Debug.Log("[UI] Showing selection UI for local player");
             }
         }
 
@@ -235,12 +241,11 @@ namespace GNW2.UI
         /// </summary>
         private void OnSelectionButtonClicked(int selection)
         {
-            // Find GameHandler and send selection
+            // Find GameHandler and send selection to server
+            // Server will handle hiding UI via RPC when appropriate
             if (GameHandler.Instance != null)
             {
                 GameHandler.Instance.SendPlayerSelection(selection);
-                // Hide selection UI locally
-                EventBus.Publish(new HideSelectionUIEvent());
                 Debug.Log($"[UI] Player selected: {selection}");
             }
             else

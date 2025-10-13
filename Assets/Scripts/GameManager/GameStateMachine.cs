@@ -23,10 +23,34 @@ namespace GNW2.GameManager
             states[GameState.ShowingResults] = new ShowingResultsState(this);
             states[GameState.RoundEnding] = new RoundEndingState(this);
 
+            // Subscribe to player joined events
+            EventBus.Subscribe<PlayerJoinedEvent>(OnPlayerJoinedEvent);
+
             // Start in waiting state
             if (Object.HasStateAuthority)
             {
                 TransitionToState(GameState.WaitingForPlayers);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            // Clean up event subscriptions
+            EventBus.Unsubscribe<PlayerJoinedEvent>(OnPlayerJoinedEvent);
+        }
+
+        /// <summary>
+        /// Called when a player joins - notifies that player is ready
+        /// </summary>
+        private void OnPlayerJoinedEvent(PlayerJoinedEvent evt)
+        {
+            if (!Object.HasStateAuthority) return;
+
+            // Notify the state machine that a player is ready
+            if (CurrentState == GameState.WaitingForSelections)
+            {
+                // Show UI to the specific player who just joined during selection phase
+                RPC_ShowSelectionUI(evt.Player);
             }
         }
 
@@ -63,6 +87,83 @@ namespace GNW2.GameManager
             {
                 states[newState]?.Enter();
             }
+        }
+
+        /// <summary>
+        /// Shows selection UI to a specific player
+        /// </summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_ShowSelectionUI([RpcTarget] PlayerRef targetPlayer)
+        {
+            EventBus.Publish(new ShowSelectionUIEvent
+            {
+                TargetPlayer = targetPlayer
+            });
+        }
+
+        /// <summary>
+        /// Hides selection UI for a specific player
+        /// </summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_HideSelectionUI([RpcTarget] PlayerRef targetPlayer)
+        {
+            EventBus.Publish(new HideSelectionUIEvent());
+        }
+
+        /// <summary>
+        /// Shows win UI to a specific player
+        /// </summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_ShowWinUI([RpcTarget] PlayerRef targetPlayer)
+        {
+            EventBus.Publish(new ShowResultUIEvent
+            {
+                TargetPlayer = targetPlayer,
+                IsWin = true,
+                IsDraw = false
+            });
+        }
+
+        /// <summary>
+        /// Shows lose UI to a specific player
+        /// </summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_ShowLoseUI([RpcTarget] PlayerRef targetPlayer)
+        {
+            EventBus.Publish(new ShowResultUIEvent
+            {
+                TargetPlayer = targetPlayer,
+                IsWin = false,
+                IsDraw = false
+            });
+        }
+
+        /// <summary>
+        /// Shows draw UI to all players
+        /// </summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_ShowDrawUI()
+        {
+            // For draw, we publish to all players - they will check if they're local
+            var runner = Runner;
+            if (runner != null && runner.LocalPlayer.IsRealPlayer)
+            {
+                EventBus.Publish(new ShowResultUIEvent
+                {
+                    TargetPlayer = runner.LocalPlayer,
+                    IsWin = false,
+                    IsDraw = true
+                });
+            }
+        }
+
+        /// <summary>
+        /// Hides result UI for all players
+        /// </summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_HideResultUI()
+        {
+            EventBus.Publish(new HideResultUIEvent());
         }
 
         public override void FixedUpdateNetwork()
@@ -151,7 +252,15 @@ namespace GNW2.GameManager
         {
             Debug.Log("Waiting for player selections...");
             _fsm.PlayersReady = 0;
-            EventBus.Publish(new ShowSelectionUIEvent());
+
+            // Show UI to each active player individually via RPC
+            if (GameManager.Instance != null)
+            {
+                foreach (var playerKvp in GameManager.Instance.activePlayers)
+                {
+                    _fsm.RPC_ShowSelectionUI(playerKvp.Key);
+                }
+            }
         }
 
         public void Update()
@@ -165,7 +274,14 @@ namespace GNW2.GameManager
 
         public void Exit()
         {
-            EventBus.Publish(new HideSelectionUIEvent());
+            // Hide selection UI for all players via RPC
+            if (GameManager.Instance != null)
+            {
+                foreach (var playerKvp in GameManager.Instance.activePlayers)
+                {
+                    _fsm.RPC_HideSelectionUI(playerKvp.Key);
+                }
+            }
         }
     }
 
@@ -223,7 +339,8 @@ namespace GNW2.GameManager
 
         public void Exit()
         {
-            EventBus.Publish(new HideResultUIEvent());
+            // Hide result UI for all players via RPC
+            _fsm.RPC_HideResultUI();
         }
     }
 
