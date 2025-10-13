@@ -1,24 +1,15 @@
 using UnityEngine;
 using Fusion;
 using GNW2.GameManager;
-using GNW2.Player;
-using System.Linq;
+using GNW2.Events;
 using System.Collections.Generic;
-using UnityEngine.UI;
+
 public class GameHandler : NetworkBehaviour
 {
     public static GameHandler Instance;
 
-    [SerializeField] private GameObject selectionUI;
-    [SerializeField] private GameObject WinUI;
-    [SerializeField] private GameObject LostUI;
-
-    [SerializeField] private Button Rock;
-    [SerializeField] private Button Paper;
-    [SerializeField] private Button Scissor;
-
+    private GameStateMachine _stateMachine;
     private List<PlayerTurn> playerTurn = new();
-
 
     struct PlayerTurn
     {
@@ -27,62 +18,38 @@ public class GameHandler : NetworkBehaviour
     }
 
 
-    bool hasShowedUI;
-
-    public bool HasGameStarted;
-
-
     public override void Spawned()
     {
         base.Spawned();
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else if (Instance != this)
+        {
+            // Prevent multiple GameHandler instances
+            Runner.Despawn(Object);
+            return;
         }
 
-        if (Rock != null)
+        // Get or create state machine
+        _stateMachine = GetComponent<GameStateMachine>();
+        if (_stateMachine == null)
         {
-            Rock.onClick.AddListener(SelectRock);
+            _stateMachine = gameObject.AddComponent<GameStateMachine>();
         }
 
-        if (Paper != null)
+        if (Object.HasStateAuthority)
         {
-            Paper.onClick.AddListener(SelectPaper);
+            _stateMachine.Initialize();
         }
-        
-        if(Scissor != null)
-        {
-            Scissor.onClick.AddListener(SelectScissor);
-        }
-    }
-
-    public override void Despawned(NetworkRunner runner, bool hasState)
-    {
-        base.Despawned(runner, hasState);
     }
 
     public override void FixedUpdateNetwork()
     {
         base.FixedUpdateNetwork();
-        if (Object.HasStateAuthority)
-        {
-
-            if (GameManager.Instance.activePlayers.Count >= 2)
-                HasGameStarted = true;
-        }
-    }
-
-
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_ShowUI()
-    {
-        selectionUI.SetActive(true);
-    }
-
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_HideUI()
-    {
-        selectionUI.SetActive(false);
+        // State machine handles game flow now
     }
 
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -93,6 +60,13 @@ public class GameHandler : NetworkBehaviour
             PlayerSelection = type,
             player = player
         });
+
+        // Publish selection event
+        RPC_BroadcastPlayerSelection(player, type);
+
+        // Update state machine
+        _stateMachine.PlayersReady++;
+
         if(playerTurn.Count == 2)
         {
             Evaluate();
@@ -100,83 +74,84 @@ public class GameHandler : NetworkBehaviour
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_ShowResults([RpcTarget] PlayerRef player, NetworkBool isWin)
+    private void RPC_BroadcastPlayerSelection(PlayerRef player, int selection)
     {
-        if (isWin)
+        EventBus.Publish(new PlayerMadeSelectionEvent
         {
-            WinUI.SetActive(true);
-        }
-        else
+            Player = player,
+            Selection = selection
+        });
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ShowResults([RpcTarget] PlayerRef player, NetworkBool isWin, NetworkBool isDraw)
+    {
+        EventBus.Publish(new ShowResultUIEvent
         {
-            LostUI.SetActive(false);
+            TargetPlayer = player,
+            IsWin = isWin,
+            IsDraw = isDraw
+        });
+    }
+
+    /// <summary>
+    /// Public method for UI to call when player makes a selection
+    /// </summary>
+    public void SendPlayerSelection(int selection)
+    {
+        if (Runner != null && Runner.LocalPlayer.IsRealPlayer)
+        {
+            RPC_SendTurn(selection, Runner.LocalPlayer);
         }
     }
 
-    private void SelectRock()
-    {
-
-        RPC_SendTurn(0);
-    }
-
-    private void SelectPaper()
-    {
-RPC_SendTurn(1);
-    }
-
-    private void SelectScissor()
-    {
-        RPC_SendTurn(2);
-    }
-    
-    
     private void Evaluate()
     {
         var p1result = playerTurn[0];
         var p2result = playerTurn[1];
 
-        switch (p1result.PlayerSelection)
-        {
-            case 0:
-                if (p2result.PlayerSelection == 1)
-                {
-                    RPC_ShowResults(p1result.player, false);
-                    RPC_ShowResults(p2result.player, true);
-                }
-                else
-                {
-                    RPC_ShowResults(p1result.player, false);
-                    RPC_ShowResults(p2result.player, false);
-                }
-                break;
-            case 1:
-                if (p2result.PlayerSelection == 2)
-                {
-                    RPC_ShowResults(p1result.player, false);
-                    RPC_ShowResults(p2result.player, true);
-                }
-                else
-                {
-                    RPC_ShowResults(p1result.player, false);
-                    RPC_ShowResults(p2result.player, false);
-                }
-                break;
-            case 2:
-                if (p2result.PlayerSelection == 0)
-                {
-                    RPC_ShowResults(p1result.player, false);
-                    RPC_ShowResults(p2result.player, true);
-                }
-                else
-                {
-                    RPC_ShowResults(p1result.player, false);
-                    RPC_ShowResults(p2result.player, false);
-                }
-                break;
-            default:
-                break;
-        }
-        
+        // Rock = 0, Paper = 1, Scissors = 2
+        // Rock beats Scissors, Scissors beats Paper, Paper beats Rock
 
+        if (p1result.PlayerSelection == p2result.PlayerSelection)
+        {
+            // Draw - show as draw to both players
+            RPC_ShowResults(p1result.player, false, true);
+            RPC_ShowResults(p2result.player, false, true);
+            RPC_BroadcastRoundEnded(PlayerRef.None, true);
+        }
+        else if ((p1result.PlayerSelection == 0 && p2result.PlayerSelection == 2) ||  // Rock beats Scissors
+                 (p1result.PlayerSelection == 1 && p2result.PlayerSelection == 0) ||  // Paper beats Rock
+                 (p1result.PlayerSelection == 2 && p2result.PlayerSelection == 1))    // Scissors beats Paper
+        {
+            // Player 1 wins
+            RPC_ShowResults(p1result.player, true, false);
+            RPC_ShowResults(p2result.player, false, false);
+            RPC_BroadcastRoundEnded(p1result.player, false);
+        }
+        else
+        {
+            // Player 2 wins
+            RPC_ShowResults(p1result.player, false, false);
+            RPC_ShowResults(p2result.player, true, false);
+            RPC_BroadcastRoundEnded(p2result.player, false);
+        }
+
+        // Transition to showing results state
+        _stateMachine.TransitionToState(GameState.ShowingResults);
+
+        // Reset for next round
+        playerTurn.Clear();
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_BroadcastRoundEnded(PlayerRef winner, NetworkBool isDraw)
+    {
+        EventBus.Publish(new RoundEndedEvent
+        {
+            Winner = winner,
+            IsDraw = isDraw
+        });
     }
 
 

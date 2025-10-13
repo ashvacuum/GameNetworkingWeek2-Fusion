@@ -20,18 +20,13 @@ namespace GNW2.Player
         [Networked] private float currentHealth { get; set; } = 100;
         private Vector3 _bulletSpawnLocation = Vector3.forward * 2;
         private NetworkCharacterController _cc;
-        private ChatUI _chatUI;
-        
+
         private event Action OnButtonPressed;
         public event Action<int> OnTakeDamage;
+
         public override void Spawned()
         {
             _cc = GetComponent<NetworkCharacterController>();
-            _chatUI = FindAnyObjectByType<ChatUI>();
-            if (_chatUI != null)
-            {
-                _chatUI.OnMesageSent += RPC_SendMessage;
-            }
 
             if (Object.HasStateAuthority)
                 currentHealth = 100;
@@ -68,27 +63,14 @@ namespace GNW2.Player
         }
 
 
+        /// <summary>
+        /// Apply damage to this player
+        /// Only state authority can modify health
+        /// </summary>
         public void TakeDamage(int Damage)
         {
             if (Object.HasStateAuthority)
                 currentHealth = Mathf.Max(0, currentHealth - Damage);
-        }
-
-        [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
-        private void RPC_SendMessage(string message)
-        {
-            Debug.Log(message);
-            RPC_SendLongerMessage(message);
-        }
-
-        private void RPC_SendLongerMessage(NetworkString<_512> message)
-        {
-            
-        }
-        
-        [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
-        private void RPC_ResetHealth(int health, int prevhealth, NetworkBool value)
-        {
         }
     }
 }

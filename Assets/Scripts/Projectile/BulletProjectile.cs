@@ -37,7 +37,6 @@ namespace GNW2.Projectile
             Debug.Log($"Hit Collider {other.collider.name}");
             if (Object.HasStateAuthority)
             {
-                if (!GameHandler.Instance.HasGameStarted) return;
                 
                 var combatInterface = other.collider.GetComponent<ICombat>();
                 if (combatInterface != null)
